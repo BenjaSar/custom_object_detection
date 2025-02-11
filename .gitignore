@@ -1,0 +1,20 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+#Enviroment variables
+.env
+
+# Virtual environment directories
+.venv/
+venv/
+env.bak/
+venv.bak/
+
+# Dataset
+datasets/
+
+# Note files
+*.txt
+
