@@ -1,0 +1,8 @@
+https://github.com/ultralytics/notebooks/blob/main/notebooks/how-to-use-ultralytics-yolo-with-openai-for-number-plate-recognition.ipynb
+
+=========================LABEL ANNOTATIONS PROGRAM======================
+
+Label studio
+
+VGG annotatior
+
