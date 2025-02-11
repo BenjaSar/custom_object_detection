@@ -15,6 +15,6 @@ venv.bak/
 # Dataset
 datasets/
 
-# Note files
-*.txt
-
+# Image
+*.jpg
+*.png
