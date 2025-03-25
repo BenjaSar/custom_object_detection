@@ -1,5 +1,5 @@
 ## Author : FS
-## Date: 2025
+## Date: January 2025
 import os
 import cv2
 import numpy as np
@@ -17,8 +17,12 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
+# Definition of constant 
+PORT = os.getenv('PORT')
+CONFIDENCE_THRESHOLD = 0.96
 
 model_path = Path('models') / 'best.pt'
+print(model_path)
 
 S3_ACCESS_KEY = os.getenv('S3_ACCESS_KEY')
 S3_SECRET_KEY = os.getenv('S3_SECRET_KEY')
@@ -48,10 +52,8 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-PORT = 8000
-
 try:
-    model = YOLO('best.pt')
+    model = YOLO(model_path)
 except Exception as e:
     raise RuntimeError(f"Failed to load YOLO model: {e}")
 
@@ -62,7 +64,6 @@ s3_client = boto3.client(
     region_name=S3_REGION
 )
 
-CONFIDENCE_THRESHOLD = 0.96
 
 @app.get("/")
 async def read_root():
@@ -89,6 +90,25 @@ async def detect_objects(file: UploadFile = File(..., description="Upload an ima
             for box in result.boxes:
                 confidence = float(box.conf[0])
                 if confidence < CONFIDENCE_THRESHOLD:
+                    not_detected_image_path = "not_detected.jpg"
+                    result.save(filename=not_detected_image_path)
+                    
+                    timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
+                    image_key = f"{timestamp}_not_detected_image.jpg"
+                    json_key = f"{timestamp}_not_detections.json"
+
+                    s3_client.upload_file(not_detected_image_path, S3_BUCKET_NAME, image_key)
+
+                    s3_client.put_object(
+                        Bucket=S3_BUCKET_NAME,
+                        Key=json_key,
+                        Body=json.dumps({"Not detection result": "No object detected."}),
+                        ContentType='application/json'
+                    )
+
+                    image_url = f"https://{S3_BUCKET_NAME}.s3.{S3_REGION}.amazonaws.com/{image_key}"
+                    json_url = f"https://{S3_BUCKET_NAME}.s3.{S3_REGION}.amazonaws.com/{json_key}"
+
                     continue
 
                 x1, y1, x2, y2 = map(int, box.xyxy[0].tolist())
@@ -102,7 +122,7 @@ async def detect_objects(file: UploadFile = File(..., description="Upload an ima
                 })
 
         if not object_detections:
-            return JSONResponse(content={"message": "No silobags detected."}, status_code=200)
+            return JSONResponse(content={"message": "The object evaluated not reaches the confidence value established."}, status_code=200)
 
         output_image_path = "detected_silobag.jpg"
         result.save(filename=output_image_path)
@@ -135,6 +155,9 @@ async def detect_objects(file: UploadFile = File(..., description="Upload an ima
     except Exception as e:
         logging.error(f"Error processing image: {e}")
         return JSONResponse(content={"error": str(e)}, status_code=500)
+    
 
-
-
+if __name__ == "__main__":
+    import uvicorn
+    host_api = os.getenv('HOST')
+    uvicorn.run(app, host=host_api, port=PORT)
